@@ -8,17 +8,30 @@ class Player:
 
 
 def create_cards():
-    card_amount = 0
     cards = []
 
-    while card_amount < 3:
-        cards.append(random.randint(1,10))
-        card_amount += 1
+    # card 1:
+    card1 = random.randint(1,10)
+    cards.append(card1)
+
+    # card 2
+    card2 = random.randint(0,10-card1)
+    cards.append(card2)
+
+    card3 = 10 - card1 - card2
+    cards.append(card3)
+
+    if random.randint(1,10) == 1:
+        cards = []
+        card_amount = 0
+        while card_amount < 3:
+            cards.append(random.randint(1, 10))
+            card_amount += 1
 
     return cards
 
 
-def combat(p1, p2):
+def calculate_points(p1, p2):
     i = 0
     while i < 3:
         if p1.cards[i] > p2.cards[i]:
@@ -26,6 +39,24 @@ def combat(p1, p2):
         elif p1.cards[i] < p2.cards[i]:
             p2.points += 1
         i += 1
+
+
+def combat(p1, p2):
+    calculate_points(p1, p2)
+
+    if sum(p1.cards) != 10:
+        p1.points = 0
+        p2.points = 3
+
+    if sum(p2.cards) != 10:
+        p2.points = 0
+        p1.points = 3
+
+    if sum(p1.cards) != 10 and sum(p2.cards) != 10:
+        p1.points = 0
+        p2.points = 0
+
+    return p1.points, p2.points
 
 
 def determine_result(p1, p2):

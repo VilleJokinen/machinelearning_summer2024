@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
-
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # Assuming results.csv has columns: p1_card1, p1_card2, p1_card3, p2_card1, p2_card2, p2_card3, result
 
 # Player class
@@ -47,9 +47,9 @@ class CardCombatDataset(Dataset):
 class CardCombatModel(nn.Module):
     def __init__(self):
         super(CardCombatModel, self).__init__()
-        self.fc1 = nn.Linear(6, 64)  # Input size 6 (3 cards each for p1 and p2), output size can be adjusted
-        self.fc2 = nn.Linear(64, 32)
-        self.fc3 = nn.Linear(32, 3)  # Output 3 classes (1, 2, 3 for result)
+        self.fc1 = nn.Linear(6, 16)  # Input size 6 (3 cards each for p1 and p2), output size can be adjusted
+        self.fc2 = nn.Linear(16, 12)
+        self.fc3 = nn.Linear(12, 3)  # Output 3 classes (1, 2, 3 for result)
 
     def forward(self, p1_cards, p2_cards):
         x = torch.cat((p1_cards, p2_cards), dim=1)  # Concatenate p1 and p2 cards
@@ -60,9 +60,9 @@ class CardCombatModel(nn.Module):
 
 
 # Hyperparameters
-batch_size = 32
+batch_size = 64
 learning_rate = 0.001
-epochs = 30
+epochs = 100
 
 # Load dataset and split into train and test
 csv_file = 'results.csv'
@@ -155,6 +155,7 @@ def get_manual_input():
     # Example: Let's say you manually input 6 cards (3 for p1, 3 for p2)
     p1_cards = [int(input("Enter p1 card 1: ")), int(input("Enter p1 card 2: ")), int(input("Enter p1 card 3: "))]
     p2_cards = [int(input("Enter p2 card 1: ")), int(input("Enter p2 card 2: ")), int(input("Enter p2 card 3: "))]
+
     return torch.tensor(p1_cards), torch.tensor(p2_cards)
 
 # Example function to predict using the trained model
@@ -173,7 +174,8 @@ def predict(model, p1_cards, p2_cards):
         result = predicted.item()  # Get the predicted class index
         return result
 
-while True:
+
+def manual_input():
     p1_cards, p2_cards = get_manual_input()
 
         # Predict using the model
@@ -187,3 +189,6 @@ while True:
     elif result == 2:
         print("Prediction: It's a draw!")
 
+
+while True:
+    manual_input()
