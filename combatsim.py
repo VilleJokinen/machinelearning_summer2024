@@ -10,14 +10,18 @@ class Player:
 def create_cards():
     cards = []
 
+    card1 = random.randint(1, 8)
+    card2 = random.randint(1, 9 - card1)
+
     # card 1:
-    card1 = random.randint(1,10)
+    # card1 = random.randint(0,10)
     cards.append(card1)
 
     # card 2
-    card2 = random.randint(0,10-card1)
+    # card2 = random.randint(0,10-card1)
     cards.append(card2)
 
+    # card 3
     card3 = 10 - card1 - card2
     cards.append(card3)
 

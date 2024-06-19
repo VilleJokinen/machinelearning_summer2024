@@ -47,9 +47,9 @@ class CardCombatDataset(Dataset):
 class CardCombatModel(nn.Module):
     def __init__(self):
         super(CardCombatModel, self).__init__()
-        self.fc1 = nn.Linear(6, 11)  # Input size 6 (3 cards each for p1 and p2), output size can be adjusted
-        self.fc2 = nn.Linear(11, 10)
-        self.fc3 = nn.Linear(10, 3)  # Output 3 classes (1, 2, 3 for result)
+        self.fc1 = nn.Linear(6, 12)  # Input size 6 (3 cards each for p1 and p2), output size can be adjusted
+        self.fc2 = nn.Linear(12, 12)
+        self.fc3 = nn.Linear(12, 3)  # Output 3 classes (1, 2, 3 for result)
 
     def forward(self, p1_cards, p2_cards):
         x = torch.cat((p1_cards, p2_cards), dim=1)  # Concatenate p1 and p2 cards
@@ -61,8 +61,8 @@ class CardCombatModel(nn.Module):
 
 # Hyperparameters
 batch_size = 64
-learning_rate = 0.0005
-epochs = 300
+learning_rate = 0.005
+epochs = 50
 
 # Load dataset and split into train and test
 csv_file = 'results.csv'
@@ -132,6 +132,16 @@ for epoch in range(epochs):
     if epoch % 5 == 0:
         print(f"Epoch [{epoch}/{epochs}], Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accuracy:.2f}%, "
               f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}%")
+    elif epoch == epochs - 1:
+        print(f"Epoch [LAST], Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accuracy:.2f}%, "
+              f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}%")
+
+    if epoch == 25:
+        learning_rate = 0.001
+
+    if epoch == 40:
+        learning_rate = 0.0005
+
 
 # Plotting
 plt.figure(figsize=(12, 6))
@@ -151,6 +161,7 @@ plt.legend()
 
 plt.show()
 
+
 def get_manual_input():
     # Example: Let's say you manually input 6 cards (3 for p1, 3 for p2)
     p1_cards = [int(input("Enter p1 card 1: ")), int(input("Enter p1 card 2: ")), int(input("Enter p1 card 3: "))]
@@ -158,7 +169,7 @@ def get_manual_input():
 
     return torch.tensor(p1_cards), torch.tensor(p2_cards)
 
-# Example function to predict using the trained model
+
 def predict(model, p1_cards, p2_cards):
     model.eval()  # Set model to evaluation mode
     with torch.no_grad():
@@ -190,5 +201,3 @@ def manual_input():
         print("Prediction: It's a draw!")
 
 
-while True:
-    manual_input()
