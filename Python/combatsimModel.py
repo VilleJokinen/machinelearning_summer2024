@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
+import pyperclip
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.cuda.manual_seed(1)
@@ -23,10 +24,10 @@ class CardCombatDataset(Dataset):
             next(reader)  # Skip header
             for row in reader:
                 p1_cards = list(map(int, row[:3]))  # First 3 columns are p1 cards
-                p1_colors = list(map(int, row[3:6]))  # Next 3 columns are p1 colors
-                p2_cards = list(map(int, row[6:9]))  # Next 3 columns are p2 cards
-                p2_colors = list(map(int, row[9:12]))  # Next 3 columns are p2 colors
-                result = int(row[12])  # Last column is result
+                p1_colors = list(map(int, row[3:12]))  # Next 9 columns are p1 one-hot colors
+                p2_cards = list(map(int, row[12:15]))  # Next 3 columns are p2 cards
+                p2_colors = list(map(int, row[15:24]))  # Next 9 columns are p2 one-hot colors
+                result = int(row[24])  # Last column is result
                 result -= 1  # Adjust result to be in range [0, 2] instead of [1, 2, 3]
                 self.data.append((p1_cards, p1_colors, p2_cards, p2_colors, result))
 
@@ -42,22 +43,24 @@ class CardCombatDataset(Dataset):
 class CardCombatModel(nn.Module):
     def __init__(self):
         super(CardCombatModel, self).__init__()
-        self.fc1 = nn.Linear(12, 32)
-        self.fc2 = nn.Linear(32, 32)
-        self.fc3 = nn.Linear(32, 3)
+        self.fc1 = nn.Linear(24, 32)
+        self.fc2 = nn.Linear(32, 24)
+        self.fc3 = nn.Linear(24, 24)
+        self.fc4 = nn.Linear(24, 3)
 
     def forward(self, p1_cards, p1_colors, p2_cards, p2_colors):
         x = torch.cat((p1_cards, p1_colors, p2_cards, p2_colors), dim=1)
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = torch.relu(self.fc3(x))
+        x = self.fc4(x)
         return x
 
 def train_model(csv_file, model_save_path='combatsimModel.pth'):
     # Hyperparameters
     batch_size = 128
-    learning_rate = 0.0005
-    epochs = 300
+    learning_rate = 0.0025
+    epochs = 400
 
     # Load dataset and split into train and test
     dataset = CardCombatDataset(csv_file)
@@ -129,14 +132,9 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
         elif epoch == epochs - 1:
             print(f"Epoch [LAST], Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accuracy:.2f}%, "
                   f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}%")
-
-        #if epoch == 100:
-        #    for g in optimizer.param_groups:
-        #        g['lr'] = 0.0005
-
-        #if epoch == 135:
-        #    for g in optimizer.param_groups:
-        #        g['lr'] = 0.0001
+            pyperclip.copy(f"Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accuracy:.2f}%, "
+                  f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}%")
+            print("Last epoch stats copied to clipboard")
 
     # Save the trained model
     torch.save(model.state_dict(), model_save_path)
@@ -199,5 +197,6 @@ def manual_input(model):
 if __name__ == "__main__":
     # Uncomment to train the model
     train_model('results.csv')
+    # Uncomment to test with manual input
     # manual_input(CardCombatModel().to(device))
     pass
