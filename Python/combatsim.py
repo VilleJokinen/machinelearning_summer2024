@@ -1,16 +1,18 @@
 import random
 import csv
 
-
 class Player:
     def __init__(self, cards, colors, points):
         self.cards = cards
         self.colors = colors
         self.points = points
 
-
-color_mapping = {'green': 0, 'red': 1, 'blue': 2}
-
+# One-hot encoding dictionary for colors
+color_encoding = {
+    'green': (1, 0, 0),
+    'red': (0, 1, 0),
+    'blue': (0, 0, 1)
+}
 
 def create_cards():
     cards = []
@@ -19,18 +21,21 @@ def create_cards():
     card1 = random.randint(1, 8)
     card2 = random.randint(1, 9 - card1)
 
-    # card 1
+    # Generate card 1
     cards.append(card1)
-    colors.append(random.choice([0, 1, 2]))
+    color1 = random.choice(list(color_encoding.values()))
+    colors.append(color1)
 
-    # card 2
+    # Generate card 2
     cards.append(card2)
-    colors.append(random.choice([0, 1, 2]))
+    color2 = random.choice(list(color_encoding.values()))
+    colors.append(color2)
 
-    # card 3
+    # Generate card 3
     card3 = 10 - card1 - card2
     cards.append(card3)
-    colors.append(random.choice([0, 1, 2]))
+    color3 = random.choice(list(color_encoding.values()))
+    colors.append(color3)
 
     if random.randint(1, 10) == 1:
         cards = []
@@ -41,36 +46,34 @@ def create_cards():
 
     return cards, colors
 
-
 def color_effectiveness(color1, color2):
+    # Define effectiveness based on color interactions
     effectiveness = {
-        0: {1: 1.5, 2: 1},
-        1: {2: 1.5, 0: 1},
-        2: {0: 1.5, 1: 1},
+        (1, 0, 0): {(0, 1, 0): 1.5, (0, 0, 1): 1},
+        (0, 1, 0): {(0, 0, 1): 1.5, (1, 0, 0): 1},
+        (0, 0, 1): {(1, 0, 0): 1.5, (0, 1, 0): 1},
     }
     if color1 == color2:
         return 1
     return effectiveness[color1][color2]
 
-
 def calculate_points(p1, p2):
     for i in range(3):
-        effectiveness_p1 = color_effectiveness(p1.colors[i], p2.colors[i])
-        effectiveness_p2 = color_effectiveness(p2.colors[i], p1.colors[i])
+        effectiveness_p1 = color_effectiveness(tuple(p1.colors[i]), tuple(p2.colors[i]))
+        effectiveness_p2 = color_effectiveness(tuple(p2.colors[i]), tuple(p1.colors[i]))
 
         p1_effective_card = p1.cards[i] * effectiveness_p1
         p2_effective_card = p2.cards[i] * effectiveness_p2
-
 
         if p1_effective_card > p2_effective_card:
             p1.points += 1
         elif p1_effective_card < p2_effective_card:
             p2.points += 1
 
-
 def combat(p1, p2):
     calculate_points(p1, p2)
 
+    # Adjust points based on total card value
     if sum(p1.cards) != 10:
         p1.points = 0
         p2.points = 3
@@ -85,15 +88,14 @@ def combat(p1, p2):
 
     return p1.points, p2.points
 
-
 def determine_result(p1, p2):
+    # Determine the result based on points
     if p1.points == p2.points:
         return 3
     if p1.points > p2.points:
         return 1
     if p1.points < p2.points:
         return 2
-
 
 def simulate():
     p1_cards, p1_colors = create_cards()
@@ -104,20 +106,34 @@ def simulate():
     result = determine_result(p1, p2)
     return p1, p2, result
 
+
 def write_file(p1, p2, result):
     with open('results.csv', mode='a', newline='') as file:
         writer = csv.writer(file)
         if file.tell() == 0:
             writer.writerow([
-                "p1_card1", "p1_color1", "p1_card2", "p1_color2", "p1_card3", "p1_color3",
-                "p2_card1", "p2_color1", "p2_card2", "p2_color2", "p2_card3", "p2_color3", "result"
+                "p1_card1", "p1_card2", "p1_card3",
+                "p1_color1_1", "p1_color1_2", "p1_color1_3",
+                "p1_color2_1", "p1_color2_2", "p1_color2_3",
+                "p1_color3_1", "p1_color3_2", "p1_color3_3",
+                "p2_card1", "p2_card2", "p2_card3",
+                "p2_color1_1", "p2_color1_2", "p2_color1_3",
+                "p2_color2_1", "p2_color2_2", "p2_color2_3",
+                "p2_color3_1", "p2_color3_2", "p2_color3_3",
+                "result"
             ])
 
+        # Flatten the color tuples
+        p1_colors_flattened = [element for sublist in p1.colors for element in sublist]
+        p2_colors_flattened = [element for sublist in p2.colors for element in sublist]
+
         writer.writerow(
-            p1.cards + p1.colors + p2.cards + p2.colors + [result]
+            p1.cards + p1_colors_flattened + p2.cards + p2_colors_flattened + [result]
         )
 
+
 def generate_data(amount):
+    # Generate specified amount of simulation data
     for _ in range(amount):
         p1, p2, result = simulate()
         write_file(p1, p2, result)
@@ -126,7 +142,8 @@ def get_middle(lst):
     return len(lst) // 2
 
 def user_input():
-    amount_to_generate = int(input("How many simulations would you like to generate? (Must be an integer) \n"))
+    # Handle user input to determine simulation amount
+    amount_to_generate = int(input("How many simulations would you like to generate? (Must be an integer)\n"))
 
     divisions = [i for i in range(1, amount_to_generate) if amount_to_generate % i == 0]
     generation_chunk = divisions[get_middle(divisions)] if divisions else 1
