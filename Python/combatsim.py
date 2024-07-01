@@ -74,15 +74,27 @@ def combat(p1, p2):
 
     return results
 
+def calculate_overall_result(results):
+    p1_points = results.count(0)
+    p2_points = results.count(1)
+
+    if p1_points > p2_points:
+        return 0  # Player 1 wins
+    elif p2_points > p1_points:
+        return 1  # Player 2 wins
+    else:
+        return 2  # Draw
+
 def simulate():
     p1_cards, p1_colors = create_cards()
     p2_cards, p2_colors = create_cards()
     p1 = Player(p1_cards, p1_colors)
     p2 = Player(p2_cards, p2_colors)
     results = combat(p1, p2)
-    return p1, p2, results
+    overall_result = calculate_overall_result(results)
+    return p1, p2, results, overall_result
 
-def write_file(p1, p2, results):
+def write_file(p1, p2, results, overall_result):
     with open('results.csv', mode='a', newline='') as file:
         writer = csv.writer(file)
         if file.tell() == 0:
@@ -95,7 +107,7 @@ def write_file(p1, p2, results):
                 "p2_color1_1", "p2_color1_2", "p2_color1_3",
                 "p2_color2_1", "p2_color2_2", "p2_color2_3",
                 "p2_color3_1", "p2_color3_2", "p2_color3_3",
-                "result1", "result2", "result3"
+                "result1", "result2", "result3", "overall_result"
             ])
 
         # Flatten the color tuples
@@ -103,14 +115,14 @@ def write_file(p1, p2, results):
         p2_colors_flattened = [element for sublist in p2.colors for element in sublist]
 
         writer.writerow(
-            p1.cards + p1_colors_flattened + p2.cards + p2_colors_flattened + results
+            p1.cards + p1_colors_flattened + p2.cards + p2_colors_flattened + results + [overall_result]
         )
 
 def generate_data(amount):
     # Generate specified amount of simulation data
     for _ in range(amount):
-        p1, p2, results = simulate()
-        write_file(p1, p2, results)
+        p1, p2, results, overall_result = simulate()
+        write_file(p1, p2, results, overall_result)
 
 def get_middle(lst):
     return len(lst) // 2
