@@ -2,10 +2,9 @@ import random
 import csv
 
 class Player:
-    def __init__(self, cards, colors, points):
+    def __init__(self, cards, colors):
         self.cards = cards
         self.colors = colors
-        self.points = points
 
 # One-hot encoding dictionary for colors
 color_encoding = {
@@ -57,7 +56,8 @@ def color_effectiveness(color1, color2):
         return 1
     return effectiveness[color1][color2]
 
-def calculate_points(p1, p2):
+def combat(p1, p2):
+    results = []
     for i in range(3):
         effectiveness_p1 = color_effectiveness(tuple(p1.colors[i]), tuple(p2.colors[i]))
         effectiveness_p2 = color_effectiveness(tuple(p2.colors[i]), tuple(p1.colors[i]))
@@ -66,48 +66,23 @@ def calculate_points(p1, p2):
         p2_effective_card = p2.cards[i] * effectiveness_p2
 
         if p1_effective_card > p2_effective_card:
-            p1.points += 1
+            results.append(1)  # Player 1 wins this comparison
         elif p1_effective_card < p2_effective_card:
-            p2.points += 1
+            results.append(0)  # Player 2 wins this comparison
+        else:
+            results.append(2)  # Draw for this comparison
 
-def combat(p1, p2):
-    calculate_points(p1, p2)
-
-    # Adjust points based on total card value
-    if sum(p1.cards) != 10:
-        p1.points = 0
-        p2.points = 3
-
-    if sum(p2.cards) != 10:
-        p2.points = 0
-        p1.points = 3
-
-    if sum(p1.cards) != 10 and sum(p2.cards) != 10:
-        p1.points = 0
-        p2.points = 0
-
-    return p1.points, p2.points
-
-def determine_result(p1, p2):
-    # Determine the result based on points
-    if p1.points == p2.points:
-        return 3
-    if p1.points > p2.points:
-        return 1
-    if p1.points < p2.points:
-        return 2
+    return results
 
 def simulate():
     p1_cards, p1_colors = create_cards()
     p2_cards, p2_colors = create_cards()
-    p1 = Player(p1_cards, p1_colors, 0)
-    p2 = Player(p2_cards, p2_colors, 0)
-    combat(p1, p2)
-    result = determine_result(p1, p2)
-    return p1, p2, result
+    p1 = Player(p1_cards, p1_colors)
+    p2 = Player(p2_cards, p2_colors)
+    results = combat(p1, p2)
+    return p1, p2, results
 
-
-def write_file(p1, p2, result):
+def write_file(p1, p2, results):
     with open('results.csv', mode='a', newline='') as file:
         writer = csv.writer(file)
         if file.tell() == 0:
@@ -120,7 +95,7 @@ def write_file(p1, p2, result):
                 "p2_color1_1", "p2_color1_2", "p2_color1_3",
                 "p2_color2_1", "p2_color2_2", "p2_color2_3",
                 "p2_color3_1", "p2_color3_2", "p2_color3_3",
-                "result"
+                "result1", "result2", "result3"
             ])
 
         # Flatten the color tuples
@@ -128,15 +103,14 @@ def write_file(p1, p2, result):
         p2_colors_flattened = [element for sublist in p2.colors for element in sublist]
 
         writer.writerow(
-            p1.cards + p1_colors_flattened + p2.cards + p2_colors_flattened + [result]
+            p1.cards + p1_colors_flattened + p2.cards + p2_colors_flattened + results
         )
-
 
 def generate_data(amount):
     # Generate specified amount of simulation data
     for _ in range(amount):
-        p1, p2, result = simulate()
-        write_file(p1, p2, result)
+        p1, p2, results = simulate()
+        write_file(p1, p2, results)
 
 def get_middle(lst):
     return len(lst) // 2
