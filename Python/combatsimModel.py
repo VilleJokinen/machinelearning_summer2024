@@ -42,7 +42,7 @@ class CardCombatDataset(Dataset):
                 torch.tensor(results, dtype=torch.long))
 
 
-class CardComparisonModel(nn.Module):
+class CardComparisonModel(nn.Module): # A submodule that compares the cards of two players and predicts the outcome for one card comparison.
     def __init__(self):
         super(CardComparisonModel, self).__init__()
         self.fc1 = nn.Linear(8, 40)
@@ -57,7 +57,7 @@ class CardComparisonModel(nn.Module):
         return x
 
 
-class CardCombatModel(nn.Module):
+class CardCombatModel(nn.Module): # The main model that combines three CardComparisonModel instances to predict the outcome of three card comparisons in a single game
     def __init__(self):
         super(CardCombatModel, self).__init__()
         self.model1 = CardComparisonModel()
