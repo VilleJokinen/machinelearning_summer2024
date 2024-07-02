@@ -46,15 +46,20 @@ class CardCombatDataset(Dataset):
 class CardComparisonModel(nn.Module):  # A submodule that compares the cards of two players and predicts the outcome for one card comparison.
     def __init__(self):
         super(CardComparisonModel, self).__init__()
-        self.fc1 = nn.Linear(8, 40)
-        self.fc2 = nn.Linear(40, 30)
-        self.fc3 = nn.Linear(30, 3)
+        layer1_features = 64
+        layer2_features = 48
+        layer3_features = 32
+        self.fc1 = nn.Linear(8, layer1_features)
+        self.fc2 = nn.Linear(layer1_features, layer2_features)
+        self.fc3 = nn.Linear(layer2_features, layer3_features)
+        self.fc4 = nn.Linear(layer3_features, 3)
 
     def forward(self, p1_card, p1_color, p2_card, p2_color):
         x = torch.cat((p1_card, p1_color, p2_card, p2_color), dim=1)
         x = torch.tanh(self.fc1(x))
         x = torch.tanh(self.fc2(x))
-        x = self.fc3(x)
+        x = torch.tanh(self.fc3(x))
+        x = self.fc4(x)
         return x
 
 
@@ -77,8 +82,8 @@ class CardCombatModel(nn.Module):
 
 def train_model(csv_file, model_save_path='combatsimModel.pth'):
     # Hyperparameters
-    batch_size = 130
-    learning_rate = 0.0025
+    batch_size = 100
+    learning_rate = 0.003
     epochs = 100
 
     # Load dataset and split into train and test
@@ -177,15 +182,24 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
             test_accuracy = 100 * correct_test / total_test
             test_accuracies.append(test_accuracy)
 
+        if epoch == 0:
+            lastepochs_train_losses = []
+            lastepochs_test_losses = []
+
         if epoch % 5 == 0:
             print(f"Epoch [{epoch}/{epochs}], Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accuracy:.2f}%, "
                   f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}%")
         if epochs - epoch <= 4:
             print(f"Epoch [{epoch}/{epochs}], Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accuracy:.2f}%, "
                   f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}%")
+
+            lastepochs_train_losses.append(train_losses[-1])
+            lastepochs_test_losses.append(test_losses[-1])
         if epochs - epoch == 1:
             end_time = time.time()
             print(f"Ending the training at {end_time}")
+            print(f"Average training loss: {(sum(train_losses)/len(train_losses)):4f} | Average training loss of last 4 epochs: {(sum(lastepochs_train_losses)/len(lastepochs_train_losses)):4f} | Lowest training loss: {min(test_losses):4f}")
+            print(f"Average test loss: {(sum(test_losses)/len(test_losses)):4f} | Average test loss of last 4 epochs: {(sum(lastepochs_test_losses)/len(lastepochs_test_losses)):4f} | Lowest test loss: {min(test_losses):4f}")
 
             elapsed_time = end_time - start_time
             print(f"Time elapsed: {elapsed_time}")
