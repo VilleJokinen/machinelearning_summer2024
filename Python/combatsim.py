@@ -66,9 +66,9 @@ def combat(p1, p2):
         p2_effective_card = p2.cards[i] * effectiveness_p2
 
         if p1_effective_card > p2_effective_card:
-            results.append(1)  # Player 1 wins this comparison
+            results.append(0)  # Player 1 wins this comparison
         elif p1_effective_card < p2_effective_card:
-            results.append(0)  # Player 2 wins this comparison
+            results.append(1)  # Player 2 wins this comparison
         else:
             results.append(2)  # Draw for this comparison
 
