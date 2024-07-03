@@ -46,20 +46,17 @@ class CardCombatDataset(Dataset):
 class CardComparisonModel(nn.Module):  # A submodule that compares the cards of two players and predicts the outcome for one card comparison.
     def __init__(self):
         super(CardComparisonModel, self).__init__()
-        layer1_features = 64
-        layer2_features = 48
-        layer3_features = 32
+        layer1_features = 8
+        layer2_features = 3
         self.fc1 = nn.Linear(8, layer1_features)
         self.fc2 = nn.Linear(layer1_features, layer2_features)
-        self.fc3 = nn.Linear(layer2_features, layer3_features)
-        self.fc4 = nn.Linear(layer3_features, 3)
+        self.fc3 = nn.Linear(layer2_features, 3)
 
     def forward(self, p1_card, p1_color, p2_card, p2_color):
         x = torch.cat((p1_card, p1_color, p2_card, p2_color), dim=1)
         x = torch.tanh(self.fc1(x))
         x = torch.tanh(self.fc2(x))
-        x = torch.tanh(self.fc3(x))
-        x = self.fc4(x)
+        x = (self.fc3(x))
         return x
 
 
@@ -69,14 +66,17 @@ class CardCombatModel(nn.Module):
         self.model1 = CardComparisonModel()
         self.model2 = CardComparisonModel()
         self.model3 = CardComparisonModel()
-        self.fc_overall = nn.Linear(9, 3)  # New layer for overall outcome prediction
+        self.fc_overall1 = nn.Linear(9, 9)
+        self.fc_overall2 = nn.Linear(9, 3)
 
     def forward(self, p1_cards, p1_colors, p2_cards, p2_colors):
         out1 = self.model1(p1_cards[:, 0].unsqueeze(1), p1_colors[:, :3], p2_cards[:, 0].unsqueeze(1), p2_colors[:, :3])
         out2 = self.model2(p1_cards[:, 1].unsqueeze(1), p1_colors[:, 3:6], p2_cards[:, 1].unsqueeze(1), p2_colors[:, 3:6])
         out3 = self.model3(p1_cards[:, 2].unsqueeze(1), p1_colors[:, 6:9], p2_cards[:, 2].unsqueeze(1), p2_colors[:, 6:9])
         combined_output = torch.cat((out1, out2, out3), dim=1)  # Concatenate the outputs
-        overall_output = self.fc_overall(combined_output)  # Predict overall outcome
+        overall_output = torch.tanh(self.fc_overall1(combined_output))
+        overall_output = (self.fc_overall2(overall_output))
+
         return out1, out2, out3, overall_output  # Return individual and overall outcomes
 
 
