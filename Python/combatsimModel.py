@@ -42,15 +42,16 @@ class CardCombatDataset(Dataset):
                 torch.tensor(p2_cards).float(), torch.tensor(p2_colors).float(),
                 torch.tensor(results, dtype=torch.long), torch.tensor(overall_result, dtype=torch.long))
 
+comparison_output_size = 3
 
 class CardComparisonModel(nn.Module):  # A submodule that compares the cards of two players and predicts the outcome for one card comparison.
-    def __init__(self):
+    def __init__(self, size):
         super(CardComparisonModel, self).__init__()
         layer1_features = 8
         layer2_features = 3
         self.fc1 = nn.Linear(8, layer1_features)
         self.fc2 = nn.Linear(layer1_features, layer2_features)
-        self.fc3 = nn.Linear(layer2_features, 3)
+        self.fc3 = nn.Linear(layer2_features, size)
 
     def forward(self, p1_card, p1_color, p2_card, p2_color):
         x = torch.cat((p1_card, p1_color, p2_card, p2_color), dim=1)
@@ -61,12 +62,12 @@ class CardComparisonModel(nn.Module):  # A submodule that compares the cards of 
 
 
 class CardCombatModel(nn.Module):
-    def __init__(self):
+    def __init__(self, size):
         super(CardCombatModel, self).__init__()
-        self.model1 = CardComparisonModel()
-        self.model2 = CardComparisonModel()
-        self.model3 = CardComparisonModel()
-        self.fc_overall1 = nn.Linear(9, 9)
+        self.model1 = CardComparisonModel(size)
+        self.model2 = CardComparisonModel(size)
+        self.model3 = CardComparisonModel(size)
+        self.fc_overall1 = nn.Linear(size*3, 9)
         self.fc_overall2 = nn.Linear(9, 3)
 
     def forward(self, p1_cards, p1_colors, p2_cards, p2_colors):
@@ -77,7 +78,7 @@ class CardCombatModel(nn.Module):
         overall_output = torch.tanh(self.fc_overall1(combined_output))
         overall_output = (self.fc_overall2(overall_output))
 
-        return out1, out2, out3, overall_output  # Return individual and overall outcomes
+        return overall_output  # Return individual and overall outcomes
 
 
 def train_model(csv_file, model_save_path='combatsimModel.pth'):
@@ -96,7 +97,7 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize model, loss function, and optimizer
-    model = CardCombatModel().to(device)
+    model = CardCombatModel(comparison_output_size).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -120,27 +121,28 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
                 p1_cards.to(device), p1_colors.to(device), p2_cards.to(device), p2_colors.to(device), \
                 targets.to(device), overall_targets.to(device)
             optimizer.zero_grad()
-            outputs1, outputs2, outputs3, overall_output = model(p1_cards, p1_colors, p2_cards, p2_colors)
+            overall_output = model(p1_cards, p1_colors, p2_cards, p2_colors)
 
-            loss1 = criterion(outputs1, targets[:, 0])
-            loss2 = criterion(outputs2, targets[:, 1])
-            loss3 = criterion(outputs3, targets[:, 2])
+            # loss1 = criterion(outputs1, targets[:, 0])
+            # loss2 = criterion(outputs2, targets[:, 1])
+            # loss3 = criterion(outputs3, targets[:, 2])
             overall_loss = criterion(overall_output, overall_targets)
-            loss = loss1 + loss2 + loss3 + overall_loss
+            # loss = loss1 + loss2 + loss3 + overall_loss
+            loss = overall_loss
 
             loss.backward()
             optimizer.step()
             epoch_train_loss += loss.item()
 
-            _, predicted1 = torch.max(outputs1.data, 1)
-            _, predicted2 = torch.max(outputs2.data, 1)
-            _, predicted3 = torch.max(outputs3.data, 1)
+            # _, predicted1 = torch.max(outputs1.data, 1)
+            # _, predicted2 = torch.max(outputs2.data, 1)
+            # _, predicted3 = torch.max(outputs3.data, 1)
             _, predicted_overall = torch.max(overall_output.data, 1)
 
-            total_train += targets.size(0) * 4  # Each game has 4 predictions: 3 card comparisons + 1 overall result
-            correct_train += (predicted1 == targets[:, 0]).sum().item()
-            correct_train += (predicted2 == targets[:, 1]).sum().item()
-            correct_train += (predicted3 == targets[:, 2]).sum().item()
+            total_train += targets.size(0) * 1  # Each game has 4 predictions: 3 card comparisons + 1 overall result
+            #correct_train += (predicted1 == targets[:, 0]).sum().item()
+            #correct_train += (predicted2 == targets[:, 1]).sum().item()
+            #correct_train += (predicted3 == targets[:, 2]).sum().item()
             correct_train += (predicted_overall == overall_targets).sum().item()
 
         train_losses.append(epoch_train_loss / len(train_loader))
@@ -158,24 +160,25 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
                 p1_cards, p1_colors, p2_cards, p2_colors, targets, overall_targets = \
                     p1_cards.to(device), p1_colors.to(device), p2_cards.to(device), p2_colors.to(device), \
                     targets.to(device), overall_targets.to(device)
-                outputs1, outputs2, outputs3, overall_output = model(p1_cards, p1_colors, p2_cards, p2_colors)
+                overall_output = model(p1_cards, p1_colors, p2_cards, p2_colors)
 
-                loss1 = criterion(outputs1, targets[:, 0])
-                loss2 = criterion(outputs2, targets[:, 1])
-                loss3 = criterion(outputs3, targets[:, 2])
+                #loss1 = criterion(outputs1, targets[:, 0])
+                #loss2 = criterion(outputs2, targets[:, 1])
+                #loss3 = criterion(outputs3, targets[:, 2])
                 overall_loss = criterion(overall_output, overall_targets)
-                loss = loss1 + loss2 + loss3 + overall_loss
+                loss = overall_loss
+                #loss = loss1 + loss2 + loss3 + overall_loss
                 epoch_test_loss += loss.item()
 
-                _, predicted1 = torch.max(outputs1.data, 1)
-                _, predicted2 = torch.max(outputs2.data, 1)
-                _, predicted3 = torch.max(outputs3.data, 1)
+                #_, predicted1 = torch.max(outputs1.data, 1)
+                #_, predicted2 = torch.max(outputs2.data, 1)
+                #_, predicted3 = torch.max(outputs3.data, 1)
                 _, predicted_overall = torch.max(overall_output.data, 1)
 
-                total_test += targets.size(0) * 4  # Each game has 4 predictions: 3 card comparisons + 1 overall result
-                correct_test += (predicted1 == targets[:, 0]).sum().item()
-                correct_test += (predicted2 == targets[:, 1]).sum().item()
-                correct_test += (predicted3 == targets[:, 2]).sum().item()
+                total_test += targets.size(0) * 1 # Each game has 4 predictions: 3 card comparisons + 1 overall result
+                #correct_test += (predicted1 == targets[:, 0]).sum().item()
+                #correct_test += (predicted2 == targets[:, 1]).sum().item()
+                #correct_test += (predicted3 == targets[:, 2]).sum().item()
                 correct_test += (predicted_overall == overall_targets).sum().item()
 
             test_losses.append(epoch_test_loss / len(test_loader))
