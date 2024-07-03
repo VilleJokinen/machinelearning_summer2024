@@ -29,26 +29,27 @@ class CardCombatDataset(Dataset):
                 p1_colors = list(map(int, row[3:12]))  # Next 9 columns are p1 one-hot colors
                 p2_cards = list(map(int, row[12:15]))  # Next 3 columns are p2 cards
                 p2_colors = list(map(int, row[15:24]))  # Next 9 columns are p2 one-hot colors
-                result1, result2, result3 = int(row[24]), int(row[25]), int(row[26])  # Last 3 columns are results
-                overall_result = int(row[27])  # Overall result
-                self.data.append((p1_cards, p1_colors, p2_cards, p2_colors, [result1, result2, result3], overall_result))
+                overall_result = int(row[24])  # Overall result
+                self.data.append((p1_cards, p1_colors, p2_cards, p2_colors, overall_result))
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        p1_cards, p1_colors, p2_cards, p2_colors, results, overall_result = self.data[idx]
+        p1_cards, p1_colors, p2_cards, p2_colors, overall_result = self.data[idx]
         return (torch.tensor(p1_cards).float(), torch.tensor(p1_colors).float(),
                 torch.tensor(p2_cards).float(), torch.tensor(p2_colors).float(),
-                torch.tensor(results, dtype=torch.long), torch.tensor(overall_result, dtype=torch.long))
+                torch.tensor(overall_result, dtype=torch.long))
 
-comparison_output_size = 3
 
-class CardComparisonModel(nn.Module):  # A submodule that compares the cards of two players and predicts the outcome for one card comparison.
+comparison_output_size = 1
+
+
+class CardComparisonModel(nn.Module):
     def __init__(self, size):
         super(CardComparisonModel, self).__init__()
-        layer1_features = 8
-        layer2_features = 3
+        layer1_features = 5
+        layer2_features = 1
         self.fc1 = nn.Linear(8, layer1_features)
         self.fc2 = nn.Linear(layer1_features, layer2_features)
         self.fc3 = nn.Linear(layer2_features, size)
@@ -67,8 +68,10 @@ class CardCombatModel(nn.Module):
         self.model1 = CardComparisonModel(size)
         self.model2 = CardComparisonModel(size)
         self.model3 = CardComparisonModel(size)
-        self.fc_overall1 = nn.Linear(size*3, 9)
-        self.fc_overall2 = nn.Linear(9, 3)
+
+        layer1_features = 1
+        self.fc_overall1 = nn.Linear(size * 3, layer1_features)
+        self.fc_overall2 = nn.Linear(layer1_features, 3)
 
     def forward(self, p1_cards, p1_colors, p2_cards, p2_colors):
         out1 = self.model1(p1_cards[:, 0].unsqueeze(1), p1_colors[:, :3], p2_cards[:, 0].unsqueeze(1), p2_colors[:, :3])
@@ -76,9 +79,9 @@ class CardCombatModel(nn.Module):
         out3 = self.model3(p1_cards[:, 2].unsqueeze(1), p1_colors[:, 6:9], p2_cards[:, 2].unsqueeze(1), p2_colors[:, 6:9])
         combined_output = torch.cat((out1, out2, out3), dim=1)  # Concatenate the outputs
         overall_output = torch.tanh(self.fc_overall1(combined_output))
-        overall_output = (self.fc_overall2(overall_output))
+        overall_output = self.fc_overall2(overall_output)
 
-        return overall_output  # Return individual and overall outcomes
+        return overall_output  # Return the overall outcome
 
 
 def train_model(csv_file, model_save_path='combatsimModel.pth'):
@@ -116,33 +119,22 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
         correct_train = 0
         total_train = 0
 
-        for p1_cards, p1_colors, p2_cards, p2_colors, targets, overall_targets in train_loader:
-            p1_cards, p1_colors, p2_cards, p2_colors, targets, overall_targets = \
+        for p1_cards, p1_colors, p2_cards, p2_colors, overall_targets in train_loader:
+            p1_cards, p1_colors, p2_cards, p2_colors, overall_targets = \
                 p1_cards.to(device), p1_colors.to(device), p2_cards.to(device), p2_colors.to(device), \
-                targets.to(device), overall_targets.to(device)
+                overall_targets.to(device)
             optimizer.zero_grad()
             overall_output = model(p1_cards, p1_colors, p2_cards, p2_colors)
 
-            # loss1 = criterion(outputs1, targets[:, 0])
-            # loss2 = criterion(outputs2, targets[:, 1])
-            # loss3 = criterion(outputs3, targets[:, 2])
             overall_loss = criterion(overall_output, overall_targets)
-            # loss = loss1 + loss2 + loss3 + overall_loss
             loss = overall_loss
 
             loss.backward()
             optimizer.step()
             epoch_train_loss += loss.item()
 
-            # _, predicted1 = torch.max(outputs1.data, 1)
-            # _, predicted2 = torch.max(outputs2.data, 1)
-            # _, predicted3 = torch.max(outputs3.data, 1)
             _, predicted_overall = torch.max(overall_output.data, 1)
-
-            total_train += targets.size(0) * 1  # Each game has 4 predictions: 3 card comparisons + 1 overall result
-            #correct_train += (predicted1 == targets[:, 0]).sum().item()
-            #correct_train += (predicted2 == targets[:, 1]).sum().item()
-            #correct_train += (predicted3 == targets[:, 2]).sum().item()
+            total_train += overall_targets.size(0)
             correct_train += (predicted_overall == overall_targets).sum().item()
 
         train_losses.append(epoch_train_loss / len(train_loader))
@@ -156,29 +148,19 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
             correct_test = 0
             total_test = 0
 
-            for p1_cards, p1_colors, p2_cards, p2_colors, targets, overall_targets in test_loader:
-                p1_cards, p1_colors, p2_cards, p2_colors, targets, overall_targets = \
+            for p1_cards, p1_colors, p2_cards, p2_colors, overall_targets in test_loader:
+                p1_cards, p1_colors, p2_cards, p2_colors, overall_targets = \
                     p1_cards.to(device), p1_colors.to(device), p2_cards.to(device), p2_colors.to(device), \
-                    targets.to(device), overall_targets.to(device)
+                    overall_targets.to(device)
+
                 overall_output = model(p1_cards, p1_colors, p2_cards, p2_colors)
 
-                #loss1 = criterion(outputs1, targets[:, 0])
-                #loss2 = criterion(outputs2, targets[:, 1])
-                #loss3 = criterion(outputs3, targets[:, 2])
                 overall_loss = criterion(overall_output, overall_targets)
                 loss = overall_loss
-                #loss = loss1 + loss2 + loss3 + overall_loss
                 epoch_test_loss += loss.item()
 
-                #_, predicted1 = torch.max(outputs1.data, 1)
-                #_, predicted2 = torch.max(outputs2.data, 1)
-                #_, predicted3 = torch.max(outputs3.data, 1)
                 _, predicted_overall = torch.max(overall_output.data, 1)
-
-                total_test += targets.size(0) * 1 # Each game has 4 predictions: 3 card comparisons + 1 overall result
-                #correct_test += (predicted1 == targets[:, 0]).sum().item()
-                #correct_test += (predicted2 == targets[:, 1]).sum().item()
-                #correct_test += (predicted3 == targets[:, 2]).sum().item()
+                total_test += overall_targets.size(0)
                 correct_test += (predicted_overall == overall_targets).sum().item()
 
             test_losses.append(epoch_test_loss / len(test_loader))
@@ -201,15 +183,17 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
         if epochs - epoch == 1:
             end_time = time.time()
             print(f"Ending the training at {end_time}")
-            print(f"Average training loss: {(sum(train_losses)/len(train_losses)):4f} | Average training loss of last 4 epochs: {(sum(lastepochs_train_losses)/len(lastepochs_train_losses)):4f} | Lowest training loss: {min(test_losses):4f}")
-            print(f"Average test loss: {(sum(test_losses)/len(test_losses)):4f} | Average test loss of last 4 epochs: {(sum(lastepochs_test_losses)/len(lastepochs_test_losses)):4f} | Lowest test loss: {min(test_losses):4f}")
+            print(
+                f"Average training loss: {(sum(train_losses) / len(train_losses)):4f} | Average training loss of last 4 epochs: {(sum(lastepochs_train_losses) / len(lastepochs_train_losses)):4f} | Lowest training loss: {min(test_losses):4f}")
+            print(
+                f"Average test loss: {(sum(test_losses) / len(test_losses)):4f} | Average test loss of last 4 epochs: {(sum(lastepochs_test_losses) / len(lastepochs_test_losses)):4f} | Lowest test loss: {min(test_losses):4f}")
 
             elapsed_time = end_time - start_time
             print(f"Time elapsed: {elapsed_time}")
 
             pyperclip.copy(f"Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accuracy:.2f}%, "
-                           f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}% | Time elapsed: {elapsed_time:.2f} sec")
-            print("Last epoch stats and time elapsed copied to clipboard")
+                           f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}% | Lowest training and test losses: {min(train_losses):4f}, {min(test_losses):4f} | Time elapsed: {elapsed_time:.2f} sec")
+            print("Training stats and time elapsed copied to clipboard")
 
     torch.save(model.state_dict(), model_save_path)
 
@@ -254,7 +238,7 @@ def get_manual_input():
     for i in range(3):
         p1_colors_onehot[i * 3 + (p1_colors[i] - 1)] = 1
         p2_colors_onehot[i * 3 + (p2_colors[i] - 1)] = 1
-    return (p1_cards, p1_colors_onehot, p2_cards, p2_colors_onehot)
+    return p1_cards, p1_colors_onehot, p2_cards, p2_colors_onehot
 
 
 def predict(model, p1_cards, p1_colors, p2_cards, p2_colors):
@@ -282,6 +266,7 @@ def predict(model, p1_cards, p1_colors, p2_cards, p2_colors):
 
         return overall_result, results
 
+
 def manual_input(model):
     p1_cards, p1_colors, p2_cards, p2_colors = get_manual_input()
     overall_result, results = predict(model, p1_cards, p1_colors, p2_cards, p2_colors)
@@ -295,16 +280,15 @@ def manual_input(model):
         print("Prediction: It's a draw!")
 
 
-
 if __name__ == "__main__":
-    answer = input("Would you like to retrain the model? (y/n) ")
-    if answer == "y":
+    answer = input("Enter anything but 'n' to retrain the model: ")
+    if answer != "n":
         train_model('results.csv')
         answer = input("Would you like to manually test the model? (y/n) ")
         if answer == "y":
             while True:
                 manual_input(load_model())
-    if answer == "n":
+    else:
         answer = input("Would you like to manually test the model? (y/n) ")
         if answer == "y":
             while True:
