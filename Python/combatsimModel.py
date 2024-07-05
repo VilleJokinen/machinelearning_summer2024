@@ -8,6 +8,8 @@ import pyperclip
 import time
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# Manual seed for consistency
 torch.cuda.manual_seed(1)
 torch.manual_seed(1)
 
@@ -18,7 +20,7 @@ class Player:
         self.points = points
 
 
-class CardCombatDataset(Dataset):
+class CardCombatDataset(Dataset):  # Get the data and map it to smaller lists
     def __init__(self, csv_file):
         self.data = []
         with open(csv_file, 'r') as file:
@@ -45,7 +47,7 @@ class CardCombatDataset(Dataset):
 comparison_output_size = 1
 
 
-class CardComparisonModel(nn.Module):
+class CardComparisonModel(nn.Module):  # This model predicts the results of the individual card comparisons
     def __init__(self, size):
         super(CardComparisonModel, self).__init__()
         layer1_features = 5
@@ -62,7 +64,7 @@ class CardComparisonModel(nn.Module):
         return x
 
 
-class CardCombatModel(nn.Module):
+class CardCombatModel(nn.Module):  # This model predicts the overall outcome of the game
     def __init__(self, size):
         super(CardCombatModel, self).__init__()
         self.model1 = CardComparisonModel(size)
@@ -81,7 +83,7 @@ class CardCombatModel(nn.Module):
         overall_output = torch.tanh(self.fc_overall1(combined_output))
         overall_output = self.fc_overall2(overall_output)
 
-        return overall_output  # Return the overall outcome
+        return overall_output
 
 
 def train_model(csv_file, model_save_path='combatsimModel.pth'):
@@ -92,8 +94,8 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
 
     # Load dataset and split into train and test
     dataset = CardCombatDataset(csv_file)
-    train_size = int(0.8 * len(dataset))
-    test_size = len(dataset) - train_size
+    train_size = int(0.8 * len(dataset))  # 80% training data
+    test_size = len(dataset) - train_size  # 20% testing data
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -195,7 +197,7 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
                            f"Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accuracy:.2f}% | Lowest training and test losses: {min(train_losses):4f}, {min(test_losses):4f} | Time elapsed: {elapsed_time:.2f} sec")
             print("Training stats and time elapsed copied to clipboard")
 
-    torch.save(model.state_dict(), model_save_path)
+    torch.save(model.state_dict(), model_save_path)  # Save the model for future use
 
     # Plotting
     plt.figure(figsize=(12, 6))
@@ -216,14 +218,14 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
     plt.show()
 
 
-def load_model(model_path='combatsimModel.pth'):
+def load_model(model_path='combatsimModel.pth'):  # Load the model so that it doesn't need to be trained
     model = CardCombatModel().to(device)
     model.load_state_dict(torch.load(model_path))
     model.eval()
     return model
 
 
-def get_manual_input():
+def get_manual_input():  # Get cards from the user for the manual testing
     p1_cards = [int(input("Enter p1 card 1: ")), int(input("Enter p1 card 2: ")), int(input("Enter p1 card 3: "))]
     p1_colors = [int(input("Enter p1 color 1 (1 for green, 2 for red, 3 for blue): ")),
                  int(input("Enter p1 color 2 (1 for green, 2 for red, 3 for blue): ")),
@@ -241,7 +243,7 @@ def get_manual_input():
     return p1_cards, p1_colors_onehot, p2_cards, p2_colors_onehot
 
 
-def predict(model, p1_cards, p1_colors, p2_cards, p2_colors):
+def predict(model, p1_cards, p1_colors, p2_cards, p2_colors):  # Predicts the outcome of a game with the cards given by the user (used with the manual input)
     model.eval()
     with torch.no_grad():
         # Convert lists to tensors and reshape them for the model
@@ -262,12 +264,12 @@ def predict(model, p1_cards, p1_colors, p2_cards, p2_colors):
 
         results = [predicted1.item(), predicted2.item(), predicted3.item()]
 
-        overall_result = predicted_overall.item()  # Use the overall prediction directly
+        overall_result = predicted_overall.item()
 
         return overall_result, results
 
 
-def manual_input(model):
+def manual_input(model):  # Get the user's manually inputted cards and feed them trough the model, then print the results
     p1_cards, p1_colors, p2_cards, p2_colors = get_manual_input()
     overall_result, results = predict(model, p1_cards, p1_colors, p2_cards, p2_colors)
 
@@ -280,7 +282,7 @@ def manual_input(model):
         print("Prediction: It's a draw!")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # Ask the user to retrain or test the model
     answer = input("Enter anything but 'n' to retrain the model: ")
     if answer != "n":
         train_model('results.csv')

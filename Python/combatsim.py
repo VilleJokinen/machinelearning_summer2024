@@ -1,10 +1,12 @@
 import random
 import csv
 
+
 class Player:
     def __init__(self, cards, colors):
         self.cards = cards
         self.colors = colors
+
 
 # One-hot encoding dictionary for colors
 color_encoding = {
@@ -12,6 +14,7 @@ color_encoding = {
     'red': (0, 1, 0),
     'blue': (0, 0, 1)
 }
+
 
 def create_cards():
     cards = []
@@ -36,6 +39,7 @@ def create_cards():
     color3 = random.choice(list(color_encoding.values()))
     colors.append(color3)
 
+    # Small chance that the sum of the cards is higher than 10 to train the model for false inputs
     if random.randint(1, 10) == 1:
         cards = []
         card_amount = 0
@@ -44,6 +48,7 @@ def create_cards():
             card_amount += 1
 
     return cards, colors
+
 
 def color_effectiveness(color1, color2):
     # Define effectiveness based on color interactions
@@ -55,6 +60,7 @@ def color_effectiveness(color1, color2):
     if color1 == color2:
         return 1
     return effectiveness[color1][color2]
+
 
 def combat(p1, p2):
     results = []
@@ -74,6 +80,7 @@ def combat(p1, p2):
 
     return results
 
+
 def calculate_overall_result(results):
     p1_points = results.count(0)
     p2_points = results.count(1)
@@ -85,6 +92,7 @@ def calculate_overall_result(results):
     else:
         return 2  # Draw
 
+
 def simulate():
     p1_cards, p1_colors = create_cards()
     p2_cards, p2_colors = create_cards()
@@ -94,7 +102,8 @@ def simulate():
     overall_result = calculate_overall_result(results)
     return p1, p2, results, overall_result
 
-def write_file(p1, p2, results, overall_result):
+
+def write_file(p1, p2, overall_result):
     with open('results.csv', mode='a', newline='') as file:
         writer = csv.writer(file)
         if file.tell() == 0:
@@ -107,7 +116,7 @@ def write_file(p1, p2, results, overall_result):
                 "p2_color1_1", "p2_color1_2", "p2_color1_3",
                 "p2_color2_1", "p2_color2_2", "p2_color2_3",
                 "p2_color3_1", "p2_color3_2", "p2_color3_3",
-                "result1", "result2", "result3", "overall_result"
+                "overall_result"
             ])
 
         # Flatten the color tuples
@@ -115,22 +124,26 @@ def write_file(p1, p2, results, overall_result):
         p2_colors_flattened = [element for sublist in p2.colors for element in sublist]
 
         writer.writerow(
-            p1.cards + p1_colors_flattened + p2.cards + p2_colors_flattened + results + [overall_result]
+            p1.cards + p1_colors_flattened + p2.cards + p2_colors_flattened + [overall_result]
         )
+
 
 def generate_data(amount):
     # Generate specified amount of simulation data
     for _ in range(amount):
         p1, p2, results, overall_result = simulate()
-        write_file(p1, p2, results, overall_result)
+        write_file(p1, p2, overall_result)
+
 
 def get_middle(lst):
     return len(lst) // 2
+
 
 def user_input():
     # Handle user input to determine simulation amount
     amount_to_generate = int(input("How many simulations would you like to generate? (Must be an integer)\n"))
 
+    # Split the data to generate into chunks for cool aesthetics :cool_emoji:
     divisions = [i for i in range(1, amount_to_generate) if amount_to_generate % i == 0]
     generation_chunk = divisions[get_middle(divisions)] if divisions else 1
 
@@ -139,6 +152,7 @@ def user_input():
         generate_data(generation_chunk)
         generated_data += generation_chunk
         print(f"Generated: {generated_data} out of {amount_to_generate} | {round(generated_data / amount_to_generate * 100)}%")
+
 
 if __name__ == '__main__':
     user_input()
