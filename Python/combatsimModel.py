@@ -219,7 +219,7 @@ def train_model(csv_file, model_save_path='combatsimModel.pth'):
 
 
 def load_model(model_path='combatsimModel.pth'):  # Load the model so that it doesn't need to be trained
-    model = CardCombatModel().to(device)
+    model = CardCombatModel(comparison_output_size).to(device)
     model.load_state_dict(torch.load(model_path))
     model.eval()
     return model
@@ -256,24 +256,15 @@ def predict(model, p1_cards, p1_colors, p2_cards, p2_colors):  # Predicts the ou
         p1_colors_tensor = p1_colors_tensor.view(1, -1)
         p2_colors_tensor = p2_colors_tensor.view(1, -1)
 
-        outputs1, outputs2, outputs3, overall_output = model(p1_cards_tensor, p1_colors_tensor, p2_cards_tensor, p2_colors_tensor)
-        _, predicted1 = torch.max(outputs1.data, 1)
-        _, predicted2 = torch.max(outputs2.data, 1)
-        _, predicted3 = torch.max(outputs3.data, 1)
+        overall_output = model(p1_cards_tensor, p1_colors_tensor, p2_cards_tensor, p2_colors_tensor)
         _, predicted_overall = torch.max(overall_output.data, 1)
 
-        results = [predicted1.item(), predicted2.item(), predicted3.item()]
+        return predicted_overall.item()
 
-        overall_result = predicted_overall.item()
-
-        return overall_result, results
-
-
-def manual_input(model):  # Get the user's manually inputted cards and feed them trough the model, then print the results
+def manual_input(model):  # Get the user's manually inputted cards and feed them through the model, then print the results
     p1_cards, p1_colors, p2_cards, p2_colors = get_manual_input()
-    overall_result, results = predict(model, p1_cards, p1_colors, p2_cards, p2_colors)
+    overall_result = predict(model, p1_cards, p1_colors, p2_cards, p2_colors)
 
-    print(f"Card comparison results: {results}")
     if overall_result == 0:
         print("Prediction: Player 1 wins!")
     elif overall_result == 1:
